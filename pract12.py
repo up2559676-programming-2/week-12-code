@@ -61,34 +61,30 @@ class LoginWindow(Toplevel):
         password = self.password.get()
 
         if username not in self.login_details:
-            print("Username not found")
             self.message.set("Username not found.")
             self.main_frame.configure(background="red")
         else:
             stored_value = self.login_details[username]
 
-            is_hashed = len(stored_value) == 128 and all(
-                c in "0123456789abcdef" for c in stored_value.lower()
+            is_hex = all(c in "0123456789abcdef" for c in stored_value.lower())
+            is_hashed = (
+                is_hex and len(stored_value) >= 64 and len(stored_value) % 2 == 0
             )
 
             if not is_hashed:
                 if stored_value == password:
-                    print("Login successful")
                     self.message.set("Login successful!")
                     self.main_frame.configure(background="green")
                 else:
-                    print("Incorrect Password")
                     self.message.set("Incorrect password.")
                     self.main_frame.configure(background="yellow")
             else:
                 stored_bytes = bytes.fromhex(stored_value)
 
                 if self.verify_pass(password, stored_bytes):
-                    print("Login successful")
                     self.message.set("Login successful!")
                     self.main_frame.configure(background="green")
                 else:
-                    print("Incorrect Password")
                     self.message.set("Incorrect password.")
                     self.main_frame.configure(background="yellow")
 

@@ -1,24 +1,34 @@
-from tkinter import Tk, Frame, Label, Entry, Button, StringVar
+from tkinter import Tk, Frame, Label, Entry, Button, StringVar, Toplevel
+import hashlib
+import hmac
 
 
 class LoginApp:
-    def __init__(self, login_details: dict[str, str]):
-        self.login_details = login_details
-        self.win = Tk()
-        self.win.title("Employee Login")
-        self.win.geometry("300x100")
+    def __init__(self, login_details: dict[str, str]) -> None:
+        self.root = Tk()
+        self.root.withdraw()
+        self.window = LoginWindow(self.root, login_details)
 
-        self.main_frame = Frame(self.win)
+    def run(self):
+        self.window.create_widgets()
+        self.root.mainloop()
+
+
+class LoginWindow(Toplevel):
+    def __init__(self, parent, login_details: dict[str, str]):
+        super().__init__(parent)
+
+        self.login_details = login_details
+        self.title("Employee Login")
+        self.geometry("350x200")
+
+        self.main_frame = Frame(self)
         self.main_frame.grid(column=0, row=0)
 
         self.username = StringVar()
         self.password = StringVar()
         self.message = StringVar()
         self.message.set("Enter username and password.")
-
-    def run(self):
-        self.create_widgets()
-        self.win.mainloop()
 
     def create_widgets(self):
         label_message = Label(self.main_frame, textvariable=self.message, width=30)
@@ -43,7 +53,7 @@ class LoginApp:
         )
         button_sign_in.grid(column=0, row=3)
 
-        button_cancel = Button(self.main_frame, text="Cancel", command=self.win.destroy)
+        button_cancel = Button(self.main_frame, text="Cancel", command=self.destroy)
         button_cancel.grid(column=1, row=3)
 
     def authenticate(self):
@@ -51,14 +61,45 @@ class LoginApp:
         password = self.password.get()
 
         if username not in self.login_details:
+            print("Username not found")
             self.message.set("Username not found.")
             self.main_frame.configure(background="red")
-        elif self.login_details[username] != password:
-            self.message.set("Incorrect password.")
-            self.main_frame.configure(background="yellow")
         else:
-            self.message.set("Login successful!")
-            self.main_frame.configure(background="green")
+            stored_value = self.login_details[username]
+
+            is_hashed = len(stored_value) == 128 and all(
+                c in "0123456789abcdef" for c in stored_value.lower()
+            )
+
+            if not is_hashed:
+                if stored_value == password:
+                    print("Login successful")
+                    self.message.set("Login successful!")
+                    self.main_frame.configure(background="green")
+                else:
+                    print("Incorrect Password")
+                    self.message.set("Incorrect password.")
+                    self.main_frame.configure(background="yellow")
+            else:
+                stored_bytes = bytes.fromhex(stored_value)
+
+                if self.verify_pass(password, stored_bytes):
+                    print("Login successful")
+                    self.message.set("Login successful!")
+                    self.main_frame.configure(background="green")
+                else:
+                    print("Incorrect Password")
+                    self.message.set("Incorrect password.")
+                    self.main_frame.configure(background="yellow")
+
+    @staticmethod
+    def verify_pass(raw_password: str, stored_value: bytes) -> bool:
+        salt = stored_value[:16]
+        stored_key = stored_value[16:]
+
+        new_key = hashlib.scrypt(raw_password.encode(), salt=salt, n=2**14, r=8, p=1)
+
+        return hmac.compare_digest(new_key, stored_key)
 
 
 def main():
@@ -72,4 +113,5 @@ def main():
     app.run()
 
 
-main()
+if __name__ == "__main__":
+    main()
